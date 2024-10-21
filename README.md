@@ -2,15 +2,15 @@
 
 ## Authors: Griffin Srednick & Stephen Swearer
 
-For consideration in Ecology 
+*For consideration in Ecology*
 
 
 Code and data will be provided in a public Zenodo DOI upon acceptance.
 
 
-Folders:
+**Folders**:
  
- - Scripts: contains scripts for:
+ - **Scripts**: contains scripts for:
    
    (1) Curating and generating dissmilarity matrices (dissimilarity_calcss.R)
    
@@ -20,6 +20,6 @@ Folders:
    
    (4) Supplemental figures for showing treatment conditions across sites (background_analyses.R).
 
- - Data: contains curated raw data (algal percent covers), metadata, and data generated/used by functions. Separated by tropical (Moorea) and temperate (PPB) systems.
- - Tables: output from modeling and summaries.
- - Figures: figure outputs
+ - **Data**: contains curated raw data (algal percent covers), metadata, and data generated/used by functions. Separated by tropical (Moorea) and temperate (PPB) systems.
+ - **Tables**: output from modeling and summaries.
+ - **Figures**: figure outputs
