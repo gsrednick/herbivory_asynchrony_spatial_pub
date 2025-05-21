@@ -1,4 +1,4 @@
-# Code in support of Habitat attributes mediate top-down and bottom-up drivers of community development in temperate and tropical algae
+# Code in support of *Habitat attributes mediate top-down and bottom-up drivers of community development in temperate and tropical algae*
 
 **Authors: Griffin Srednick & Stephen Swearer**
 
