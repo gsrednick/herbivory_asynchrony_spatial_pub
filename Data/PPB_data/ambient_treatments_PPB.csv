@@ -1,0 +1,13 @@
+﻿site,zone,urchin_stat,nutrient_treat,herb_treat,nutrient_treat_sp,herb_treat_sp
+Jawbone,Shallow,Cull,high,low,high nutrients,low herbivore
+Jawbone,Deep,Cull,high,low,high nutrients,low herbivore
+Jawbone,Shallow,Barren,high,mid,high nutrients,mid herbivore
+Jawbone,Deep,Barren,high,high,high nutrients,high herbivore
+Ricketts,Shallow,Cull,mid,low,mid nutrients,low herbivore
+Ricketts,Deep,Cull,mid,low,mid nutrients,low herbivore
+Ricketts,Shallow,Barren,mid,low,mid nutrients,low herbivore
+Ricketts,Deep,Barren,mid,mid,mid nutrients,mid herbivore
+Mornington,Shallow,Kelp,low,low,low nutrients,low herbivore
+Mornington,Deep,Kelp,low,low,low nutrients,low herbivore
+Mornington,Shallow,Barren,low,high,low nutrients,high herbivore
+Mornington,Deep,Barren,low,high,low nutrients,high herbivore
