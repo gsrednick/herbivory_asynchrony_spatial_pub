@@ -1,11 +1,16 @@
 # Dissimilarity calculations ####
 
+# In support of:
+# Habitat attributes mediate top-down and bottom-up drivers of community development in temperate and tropical algae
+# in Ecosphere XXXX
+# Authors: Griffin Srednick & Stephen Swearer
+
 library(vegan)
 library(tidyverse)
+library(reshape2)
 
 
-
-# Moorea ####
+# (1) Moorea ####
 ## MDS ####
 MRA_community<-read.csv("./Data/Moorea_data/MRA_PC_analyze.csv")
 community<-MRA_community
@@ -15,13 +20,31 @@ com_summarized <- community[c(15:36)]
 env_summarized <- community[-c(15:36)]
 
 com_summarized_mds <- metaMDS(comm = com_summarized, distance = "bray",
-                              trace = FALSE, autotransform = TRUE, na.rm = FALSE)
+                              trace = FALSE, autotransform = TRUE, na.rm = FALSE, parallel = 12)
 com_summarized_mds$stress # 0.17
+stressplot(com_summarized_mds)
+
+# Testing for autocorrelation
+MRA_scores <- scores(com_summarized_mds, display = "sites")[,1]
+acf(MRA_scores, main = "Autocorrelation of NMDS Axis 1")
+pacf(MRA_scores, main = "Partial Autocorrelation of NMDS Axis 1")
+mra_paried_var <- lmer(MRA_scores ~ time_point + (1 | meta), data = env_summarized)
+summary(mra_paried_var)
 
 
 com_summarized_mds$species
 com_summarized_mds_points<-data.frame(com_summarized_mds$points)
 mds<-merge(env_summarized,com_summarized_mds_points, by="row.names", all.x=TRUE)
+
+env_summarized_timepoints<-merge(MRA_time_points,env_summarized)
+MRA_time_mantel_test <- mantel(vegdist(com_summarized), dist(env_summarized_timepoints$Day_count), method = "pearson")
+MRA_time_mantel_test
+
+MRA_tile_mantel_test <- mantel(vegdist(com_summarized), dist(env_summarized_timepoints$meta), method = "pearson")
+MRA_tile_mantel_test
+
+MRA_adonis_result <- adonis2(com_summarized ~ Day_count, data = env_summarized_timepoints, method = "bray")
+MRA_adonis_result
 
 ambient_treats_nochange<-read.csv("./Data/Moorea_data/ambient_treatments.csv") # bring in background site treatments
 
@@ -171,15 +194,69 @@ write.csv(MRA_cleaned_merged_dist,"./Data/Moorea_data/MRA_complete.csv",row.name
 
 
 
-# Port Phillip ####
+# (2) Port Phillip ####
 ## MDS ####
 PPB_community<-read.csv('./Data/PPB_data/PPB_PC_analyze.csv')
 PPB_com_summarized <- PPB_community[c(18:57)]
 PPB_env_summarized <- PPB_community[-c(18:57)]
 
-PPB_com_summarized_mds <- metaMDS(comm = PPB_com_summarized, distance = "bray",
-                                  trace = FALSE, autotransform = TRUE, na.rm = FALSE)
+
+#PPB_spp_order<-PPB_com_summarized %>%
+#  summarize_all(mean) %>%
+#  pivot_longer(cols = tidyselect::everything(),
+#               names_to = 'species', values_to = "mean_cov")
+
+PPB_spp_sum_order<-PPB_com_summarized %>%
+  summarize_all(sum) %>%
+  pivot_longer(cols = tidyselect::everything(),
+               names_to = 'species', values_to = "sum_cov")
+
+#PPB_spp_order_filt<-PPB_spp_order %>% filter(mean_cov > 0.1)
+PPB_spp_sum_order_filt<-PPB_spp_sum_order %>% filter(sum_cov > 0)
+
+dim(PPB_spp_order_filt)
+dim(PPB_spp_order)
+
+
+PPB_com_summarized_filt<-PPB_com_summarized %>%
+  select(all_of(intersect(colnames(PPB_com_summarized), PPB_spp_sum_order_filt$species)))
+
+PPB_filterd_com_meta<-cbind(PPB_env_summarized,PPB_com_summarized_filt)
+
+PPB_com_summarized_log<-PPB_com_summarized_filt %>%
+  summarize_all(~log(.+1))
+
+#PPB_com_summarized_log<-PPB_com_summarized %>%
+#  summarize_all(~log(.+1))
+
+#PPB_com_summarized_filt$dummy = 1
+PPB_com_summarized_mds <- metaMDS(comm = PPB_com_summarized_log, distance = "bray",
+                                  trace = FALSE, autotransform = F, na.rm = F, trymax = 500, parallel = 11)
 PPB_com_summarized_mds$stress # 0.20
+stressplot(PPB_com_summarized_mds)
+
+# Testing for autocorrelation
+PPB_scores <- scores(PPB_com_summarized_mds, display = "sites")[,1]
+acf(PPB_scores, main = "Autocorrelation of NMDS Axis 1")
+pacf(PPB_scores, main = "Partial Autocorrelation of NMDS Axis 1")
+ppb_paried_var <- lmer(PPB_scores ~ time_point + (1 | metacom_site_code), data = PPB_env_summarized)
+summary(ppb_paried_var)
+
+
+#nmds_result <- metaMDS(PPB_com_summarized, strata = PPB_env_summarized$tile_number)
+#nmds_result
+PPB_time_mantel_test <- mantel(vegdist(PPB_com_summarized_filt), dist(PPB_env_summarized$time_point), method = "pearson")
+PPB_time_mantel_test
+
+PPB_tile_mantel_test <- mantel(vegdist(PPB_com_summarized_filt),
+                               dist(PPB_env_summarized$metacom_site_code), method = "pearson")
+PPB_tile_mantel_test
+
+adonis_result <- adonis2(PPB_com_summarized_filt ~ time_point, data = PPB_env_summarized, method = "bray")
+adonis_result
+
+
+
 
 PPB_com_summarized_mds$species
 PPB_com_summarized_mds_points<-data.frame(PPB_com_summarized_mds$points)
@@ -190,7 +267,7 @@ PPB_mds<-merge(PPB_env_summarized,PPB_com_summarized_mds_points, by="row.names",
 
 ## plotting
 # with envfit over the top
-PPB_ef_sum <- envfit(PPB_com_summarized_mds, PPB_com_summarized, permu = 999)
+PPB_ef_sum <- envfit(PPB_com_summarized_mds, PPB_com_summarized_log, permu = 999)
 
 PPB_ef_sum.scrs <- as.data.frame(scores(PPB_ef_sum, display = "vectors")) # save species intrinsic values into dataframe
 PPB_ef_sum.scrs <- cbind(PPB_ef_sum.scrs, species = rownames(PPB_ef_sum.scrs)) # add species names to dataframe
@@ -210,10 +287,10 @@ write.csv(PPB_ef_sum.scrs,"./Data/PPB_data/PPB_mds_vectors_all.csv", row.names =
 
 
 ## BC distance ####
-PPB_com_summarized <- PPB_community[c(18:57)]
-
+#PPB_com_summarized <- PPB_community[c(18:57)]
+#PPB_com_summarized <- PPB_com_summarized_filt
 PPB_env_summarized <- PPB_community[-c(18:57)]
-PPB_com_bray<-PPB_com_summarized
+PPB_com_bray<-PPB_com_summarized_filt
 
 PPB_dissim_df<- PPB_community %>%
   mutate(Tile_time = paste0(tile_number,sep = "_",time_point)) #%>%

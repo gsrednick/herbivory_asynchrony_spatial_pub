@@ -1,5 +1,10 @@
 # General summary script
 
+# In support of:
+# Habitat attributes mediate top-down and bottom-up drivers of community development in temperate and tropical algae
+# in Ecosphere XXXX
+# Authors: Griffin Srednick & Stephen Swearer
+
 library(tidyverse)
 library(vegan)
 library(lme4)
@@ -11,7 +16,11 @@ library(patchwork)
 library(magick)
 library(DHARMa)
 library(ggeffects)
+library(ggrepel)
 
+# Data import
+MRA_community<-read.csv("./Data/Moorea_data/MRA_PC_analyze.csv")
+PPB_community<-read.csv("./Data/PPB_data/PPB_PC_analyze.csv")
 
 # Add Icons for figs
 FH_NH_image<-magick::image_read("./Figures/inset_text/FH_NH.png") %>%
@@ -92,8 +101,9 @@ MRA_merged_full$nutrient_treat_sp = factor(MRA_merged_full$nutrient_treat_sp, le
 MRA_merged_full$herb_treat_sp = factor(MRA_merged_full$herb_treat_sp, levels=c("high herbivore","mid herbivore","low herbivore"))
 
 
-MRA_merged_plot<-MRA_merged_full %>% filter(!nutrient_treat_sp == "mid_nutrients",
-                           !herb_treat_sp == "mid herbivore")
+MRA_merged_plot<-MRA_merged_full %>%
+  filter(!nutrient_treat_sp == "mid_nutrients",
+         !herb_treat_sp == "mid herbivore")
 
 
 ## LMER ####
@@ -104,14 +114,11 @@ tropical_rep<-MRA_merged_lmer %>%
   dplyr::summarize(count = n())
 
 # assumptions
-qqnorm((MRA_merged_lmer$total_cover)^(1/3)) # violates assumptions
-qqnorm(MRA_merged_lmer$H) # Acceptable
-
 logitTransform <- function(p) { log(p/(1.01-p) + 1) } # Transformation for percent cover
 
 MRA_merged_lmer$total_cover_trans<-logitTransform(MRA_merged_lmer$total_cover/100)
 
-qqnorm(MRA_merged_lmer$total_cover_trans) # yes, more normal
+qqnorm(MRA_merged_lmer$total_cover_trans) # yes, normal
 
 
 # Cover - over time
@@ -124,7 +131,7 @@ ranova(MRA_cover_time_lmer)
 emmeans(MRA_cover_time_lmer, list(pairwise ~ time_point * herb_treat_sp * nutrient_treat_sp), adjust = "tukey")
 
 # model assumptions
-MRA_cover_time_lmer_fit<-simulateResiduals(fittedModel = MRA_cover_time_lmer, plot = T) #non normal; heterscedastic
+MRA_cover_time_lmer_fit<-simulateResiduals(fittedModel = MRA_cover_time_lmer, plot = T)
 testDispersion(MRA_cover_time_lmer_fit) # good
 plot(resid(MRA_cover_time_lmer),MRA_merged_lmer$total_cover_trans)
 
@@ -139,7 +146,7 @@ ranova(MRA_div_time_lmer)
 
 # model assumptions
 MRA_div_time_lmer_fit<-simulateResiduals(fittedModel = MRA_div_time_lmer, plot = F)
-plot(MRA_div_time_lmer_fit)#non normal; heterscedastic
+plot(MRA_div_time_lmer_fit)
 testDispersion(MRA_div_time_lmer_fit) # good
 
 plot(ggpredict(MRA_div_time_lmer, terms = c("time_point","com_treat","herb_treat_sp","nutrient_treat_sp")))
@@ -227,8 +234,6 @@ MRA_cover_plot<-ggplot(MRA_cover_lmer_predict_df_complete, aes(x = Day_count, y 
                         count = n()),
             aes(label = count, x = Day_count, y = mean_cover, color = com_treat_het),
             min.segment.length = Inf,
-            #box.padding = 0.1,
-            #position = position_dodge(width = 150),
             size = 3) +
   geom_segment(data = MRA_cover_estimate_standard, aes(x = Day_count, y = 0.1, yend = 0.8, color = com_treat_het),
                size = 1,
@@ -306,22 +311,32 @@ ggsave(filename = "./Figures/MRA_summary_time_fig.pdf",
 
 # Temperate - Port Phillip ####
 PPB_community<-read.csv('./Data/PPB_data/PPB_PC_analyze.csv')
+
 PPB_community_sum<-PPB_community %>%
+  #cbind(PPB_com_summarized_filt) %>%
   select(-18) %>% # remove BARE space
   filter(!zone == "Shallow") %>%
-  mutate(total_cover = rowSums(.[18:55]),
-         H = diversity(.[18:55]))
+  mutate(total_cover = rowSums(.[18:56]),
+         H = diversity(.[18:56]))
+
+#PPB_community_sum<-PPB_community %>%
+#  select(-18) %>% # remove BARE space
+#  filter(!zone == "Shallow") %>%
+#  mutate(total_cover = rowSums(.[18:55]),
+#         H = diversity(.[18:55]))
 
 PPB_ambient_treats_nochange<-read.csv("./Data/PPB_data/ambient_treatments_PPB.csv")
-PPB_community_meta<-merge(PPB_community_sum,PPB_ambient_treats_nochange) %>%
-  select(-c(4:8,14,18:55))
-
 PPB_time_points<-read.csv("./Data/PPB_data/PPB_time_points.csv")
 
-PPB_community_meta_full<-merge(PPB_community_meta,PPB_time_points)
+PPB_community_complete<-merge(PPB_community_sum,PPB_ambient_treats_nochange) %>%
+  merge(PPB_time_points)
+
+PPB_community_meta<-PPB_community_complete %>%
+  select(-c(5:9,14,18:54))
+
 
 # check for duplicates?
-PP_rep_check<-PPB_community_meta_full %>%
+PP_rep_check<-PPB_community_meta %>%
   filter(site == "Mornington") %>%
   group_by(urchin_stat,zone,nutrient_treat_sp,herb_treat_sp,time_point) %>%
   dplyr::summarize(count = n())
@@ -330,14 +345,17 @@ PP_rep_check<-PPB_community_meta_full %>%
 
 
 # Add zero time point
-PPB_community_meta_zero_point<-PPB_community_meta_full %>%
+PPB_community_meta_zero_point<-PPB_community_meta %>%
   filter(time_point == "1") %>%
   mutate(time_point = "0",
          Day_count = 0,
          total_cover = 0,
          H = 0)
 
-PPB_merged_full <-rbind(PPB_community_meta_full,PPB_community_meta_zero_point)
+PPB_community_full_merge<-PPB_community_complete %>%
+  select(all_of(intersect(colnames(PPB_community_complete), colnames(PPB_community_meta_zero_point))))
+
+PPB_merged_full <-rbind(PPB_community_full_merge,PPB_community_meta_zero_point)
 
 
 PPB_merged_full$nutrient_treat_sp = factor(PPB_merged_full$nutrient_treat_sp, levels=c("low nutrients","mid nutrients","high nutrients"))
@@ -459,7 +477,7 @@ PPB_cover_estimate_standard <- PPB_merged_plot %>%
   group_by(Day_count, complex_treatment_het, herb_treat_sp, nutrient_treat_sp) %>%
   dplyr::summarize(mean_cover = mean(total_cover)) %>%
   arrange(Day_count) %>%
-  filter(mean_cover > 95) %>%
+  dplyr::filter(mean_cover > 95) %>%
   group_by(complex_treatment_het, herb_treat_sp, nutrient_treat_sp) %>%
   slice(1)
 
@@ -908,12 +926,15 @@ MRA_summarized_mds <- MRA_mds_df_merged %>%
 MRA_summarized_mds$nutrient_treat_sp = factor(MRA_summarized_mds$nutrient_treat_sp, levels=c("low nutrients","high nutrients"))
 MRA_summarized_mds$herb_treat_sp = factor(MRA_summarized_mds$herb_treat_sp, levels=c("low herbivore","high herbivore"))
 
+MRA_color_mapping <- setNames(MRA_vect_colors_merged_df$shade, MRA_vect_colors_merged_df$species)
+
 MRA_community_MDS<-ggplot(MRA_summarized_mds[order(MRA_summarized_mds$time_point_num),], aes(x=mean_MDS1,y=mean_MDS2)) +
   geom_hline(yintercept = 0, alpha = 0.1) +
   geom_vline(xintercept = 0, alpha = 0.1) +
-  geom_segment(data=MRA_vect_colors_merged_df,aes(x=0,xend=NMDS1/1.5,y=0,yend=NMDS2/1.5, color = shade), size = 0.8,arrow = arrow(length = unit(0.3,"cm")),
+  geom_segment(data=MRA_vect_colors_merged_df,aes(x=0,xend=NMDS1/1.5,y=0,yend=NMDS2/1.5, color = species), size = 0.8,arrow = arrow(length = unit(0.3,"cm")),
                key_glyph = "abline") +
-  scale_color_manual(values = unique(MRA_vect_colors_merged_df$shade), labels = unique(MRA_vect_colors_merged_df$species)) +
+  #scale_color_manual(values = unique(MRA_vect_colors_merged_df$shade), labels = unique(MRA_vect_colors_merged_df$species)) +
+  scale_color_manual(values = MRA_color_mapping) +
   geom_errorbarh(aes(xmax = mean_MDS1 + se_MDS1, xmin = mean_MDS1 - se_MDS1)) +
   geom_errorbar(aes(ymax = mean_MDS2 + se_MDS2, ymin = mean_MDS2 - se_MDS2)) +
   geom_path(aes(group=com_treat)) +
@@ -990,12 +1011,15 @@ PPB_summarized_mds<-PPB_summarized_mds %>%
                             "simple" = "high access",
                             "complex" = "low access"))
 
+PPB_color_mapping <- setNames(PPB_vect_colors_merged_df$shade, PPB_vect_colors_merged_df$species)
+
 PPB_community_MDS<-ggplot(PPB_summarized_mds[order(PPB_summarized_mds$time_point),], aes(x=mean_MDS1,y=mean_MDS2)) +
   geom_hline(yintercept = 0, alpha = 0.1) +
   geom_vline(xintercept = 0, alpha = 0.1) +
-  geom_segment(data=PPB_vect_colors_merged_df,aes(x=0,xend=NMDS1*1.5,y=0,yend=NMDS2*1.5, color = shade), size = 0.8,arrow = arrow(length = unit(0.3,"cm")),
+  geom_segment(data=PPB_vect_colors_merged_df,aes(x=0,xend=NMDS1*1.5,y=0,yend=NMDS2*1.5, color = species), size = 0.8,arrow = arrow(length = unit(0.3,"cm")),
                key_glyph = "abline") +
-  scale_color_manual(values = unique(PPB_vect_colors_merged_df$shade), labels = unique(PPB_vect_colors_merged_df$species)) +
+#  scale_color_manual(values = unique(PPB_vect_colors_merged_df$shade), labels = unique(PPB_vect_colors_merged_df$species)) +
+  scale_color_manual(values = PPB_color_mapping) +
   geom_errorbarh(aes(xmax = mean_MDS1 + se_MDS1, xmin = mean_MDS1 - se_MDS1)) +
   geom_errorbar(aes(ymax = mean_MDS2 + se_MDS2, ymin = mean_MDS2 - se_MDS2)) +
   geom_path(aes(group=complex_treatment_het)) +
@@ -1037,13 +1061,13 @@ combined_mds_plot<-
 
 
 
-ggsave(filename = "./Figures/combined_MDS.pdf",
+ggsave(filename = "./Figures/combined_MDS_new.pdf",
        plot = combined_mds_plot,
        dpi = 300,
        width = 12,
        height = 6.6)
 
-ggsave(filename = "./Figures/combined_MDS.png",
+ggsave(filename = "./Figures/combined_MDS_new.png",
        plot = combined_mds_plot,
        dpi = 300,
        width = 12,
@@ -1051,14 +1075,16 @@ ggsave(filename = "./Figures/combined_MDS.png",
        )
 
 # Vector regions
-ggplot(PPB_vect_colors_merged_df,aes(x=NMDS1,y=NMDS2)) +
-  geom_text(aes(label = species,color = shade)) +
+ggplot(PPB_vect_colors_merged_df,aes(x=NMDS1,y=NMDS2,label = species,color = species)) +
+  #geom_point() +
+  geom_text() +
   theme_bw() +
-  lims(x = c(-1,1)) +
+  scale_color_manual(values = PPB_color_mapping) +
+  #scale_color_manual(values = unique(PPB_vect_colors_merged_df$shade), labels = unique(PPB_vect_colors_merged_df$species)) +
+  #lims(x = c(-1,1)) +
   geom_hline(yintercept = 0) +
   geom_vline(xintercept = 0)
 #remove_grid()
-
 
 
 
@@ -1094,8 +1120,8 @@ PPB_species_complete<-merge(PPB_labels,PPB_species_all)
 
 
 # get percent cover and SD for each species
-PPB_long<-PPB_community %>%
-  pivot_longer(cols = c(18:57),names_to = "species",values_to = "cover") %>%
+PPB_long<-PPB_filterd_com_meta %>%
+  pivot_longer(cols = c(18:53),names_to = "species",values_to = "cover") %>%
   group_by(species) %>%
   dplyr::summarize(mean_cover = mean(cover,na.rm = T),
             SD_cover = sd(cover, na.rm = T))
@@ -1105,7 +1131,7 @@ PPB_long$mean_sd <- sprintf("%.2f ± %.2f", PPB_long$mean_cover, PPB_long$SD_cov
 PPB_species_table<-merge(PPB_species_complete,PPB_long) %>%
   select(species,Name,mean_sd,pval,r2)
 
-write.csv(PPB_species_table,"./Tables/PPB_complete_species_table.csv", row.names = F)
+write.csv(PPB_species_table,"./Tables/PPB_complete_species_table_new.csv", row.names = F)
 
 
 

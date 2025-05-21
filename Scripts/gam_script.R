@@ -1,5 +1,12 @@
 # GAM models
 
+# In support of:
+# Habitat attributes mediate top-down and bottom-up drivers of community development in temperate and tropical algae
+# in Ecosphere XXXX
+# Authors: Griffin Srednick & Stephen Swearer
+
+# Note: Section (3) is the plotting reported in the main text
+
 library(tidyverse)
 library(ggeffects)
 library(mgcv)
@@ -10,7 +17,7 @@ library(ggExtra)
 library(patchwork)
 library(ggrepel)
 
-# Moorea ####
+# (1) Moorea ####
 ## Data curation ####
 MRA_cleaned_merged_dist<-read.csv("./Data/Moorea_data/MRA_complete.csv")
 
@@ -82,8 +89,8 @@ gam_V1.5 <- gam(value ~
 summary(gam_V1.5)
 anova(gam_V1.5)
 AIC(gam_V1.5)
-qq_plot(gam_V1.5) # good fit for intercept
-plot.gam(gam_V1.5)
+#qq_plot(gam_V1.5) # good fit for intercept
+#plot.gam(gam_V1.5)
 
 
 # Extract model estimates for figures
@@ -143,9 +150,7 @@ gam_V1_ANCOVA<-ggplot() +
   guides(fill = "none") +
   scale_color_manual(values = c("black", "red", "blue")) +
   scale_fill_manual(values = c("black", "red", "blue")) +
-  labs(x = "Time (days)", y= "Community dissimilarity (BC)", color = "Accessibility") #+
-  geom_text(data = MRA_gam_summary_updated, aes(label = edf, color = group), x = 10, y = 0.75, hjust = 0, vjust = 0, size = 3, color = "black", inherit.aes = T)
-
+  labs(x = "Time (days)", y= "Community dissimilarity (BC)", color = "Accessibility")
 
 ## Plotting these ####
 
@@ -407,7 +412,7 @@ ggsave(filename = "./Figures/MRA_gam_fig.png",
 
 
 
-# Port Phillip ####
+# (2) Port Phillip ####
 ## Data curation
 PPB_dist_merged_full<-read.csv("./Data/PPB_data/PPB_complete.csv")
 
@@ -473,15 +478,8 @@ PPB_cleaner_W_zero_treats_summarized<-PPB_cleaner_W_zero_treats %>%
          panel = herb_treat_sp)
 
 
-ggplot() +
-  geom_point(data = PPB_cleaner_W_zero_point, aes(x = x, y = predicted, color = group)) +
-  facet_grid(panel~facet) +
-  theme_bw()
-
-# GAM ####
+## GAM ####
 PPB_kvalue = 3
-
-str(PPB_cleaner_W_zero)
 # modified to get all interactions
 PPB_gam_V1.5 <- gam(value ~
                   s(time_point_num, by = nutrient_treat_sp, k = PPB_kvalue, bs = "fs") +
@@ -815,5 +813,501 @@ ggsave(filename = "./Figures/PPB_gam_fig.png",
        dpi = 300,
        height = 7.16,
        width = 9)
+
+
+
+
+
+#(3) GAM FOR BOTH MRA AND PPB TOGETHER ####
+MRA_cleaner_W_zero_merge<-MRA_cleaner_W_zero %>% select(time_point_num,nutrient_treat_sp,meta_treat,herb_treat_sp,value) %>% mutate(system = as.factor("tropical"))
+PPB_cleaner_W_zero_merge<-PPB_cleaner_W_zero %>% select(time_point_num,nutrient_treat_sp,meta_treat,herb_treat_sp,value) %>% mutate(system = as.factor("temperate"))
+
+combined_systems_gam_df<-rbind(MRA_cleaner_W_zero_merge,PPB_cleaner_W_zero_merge)
+
+
+combined_gam <- gam(value ~
+                      s(time_point_num, by = nutrient_treat_sp, k = PPB_kvalue, bs = "fs") +
+                      s(time_point_num, by = herb_treat_sp, k = PPB_kvalue, bs = "fs") +
+                      s(time_point_num, by = meta_treat, k = PPB_kvalue, bs = "fs") +
+                      s(time_point_num, by = system, k = PPB_kvalue, bs = "fs") +
+                      #te(time_point_num,meta_treat, nutrient_treat_sp, herb_treat_sp,bs = "fs", m=2) +
+                      #t2(time_point_num,meta_treat, nutrient_treat_sp, bs = "fs") + #+
+                      #t2(time_point_num,meta_treat, herb_treat_sp, bs = "fs") + #+
+                      #t2(time_point_num,nutrient_treat_sp, herb_treat_sp, bs = "fs") + #+
+                      t2(time_point_num,meta_treat, nutrient_treat_sp, herb_treat_sp,system, bs = "fs"), #+
+                    method = "REML",
+                    data = combined_systems_gam_df) # using full dataset --> some replicates missing at T3-5
+
+summary(combined_gam)
+anova(combined_gam)
+AIC(combined_gam)
+gam.check(combined_gam)
+gam.vcomp(combined_gam)
+
+combined_gam_summary <- as.data.frame(summary(combined_gam)$s.table)
+write.csv(combined_gam_summary, "./Tables/combined_gam_summary.csv")
+
+combined_gam_summary$treatment<-rownames(combined_gam_summary)
+
+#combined_rsq<-summary(combined_gam_summary)$r.sq
+combined_int_table<-combined_gam_summary %>%
+  filter(str_detect(treatment,"t2")) %>%
+  mutate(rsq = PPB_rsq)
+
+
+combined_gam_predict<-ggeffects::ggpredict(combined_gam,terms = c("time_point_num [all]","meta_treat","nutrient_treat_sp","herb_treat_sp","system"))
+combined_gam_predict %>% plot()
+
+combined_gam_predict$group = factor(combined_gam_predict$group, levels=c("simple","complex","mix"))
+combined_gam_predict$facet = factor(combined_gam_predict$facet, levels=c("low nutrients","high nutrients"))
+
+combined_systems_gam_df_trop<-combined_systems_gam_df %>%
+  filter(system == "tropical") %>%
+  rename(x = "time_point_num",
+         predicted = "value",
+         "group" = "meta_treat",
+         "facet" = "nutrient_treat_sp",
+         "panel" = "herb_treat_sp")
+
+combined_gam_ANCOVA_trop<-
+  combined_gam_predict %>%
+  filter(grid == "tropical") %>%
+  ggplot() +
+  geom_line(aes(x, predicted, color = group), size = 1) +
+  geom_ribbon(aes(x = x, ymin = conf.low, ymax = conf.high, color = group, fill = group), alpha = 0.2, linewidth = 0.01) +
+  geom_point(data = combined_systems_gam_df_trop, aes(x = x, y = predicted, color = group), alpha = 0.2) +
+  facet_grid(panel~facet) +
+  theme_bw() +
+  guides(fill = "none") +
+  scale_color_manual(values = c("black", "magenta","yellow4")) +
+  scale_fill_manual(values = c("black", "magenta","yellow4")) +
+  #removeGrid() +
+  labs(x = "Time (days)", y= "Community dissimilarity (BC)", color = "Accessibility")
+
+combined_systems_gam_df_temp<-combined_systems_gam_df %>%
+  filter(system == "temperate") %>%
+  rename(x = "time_point_num",
+         predicted = "value",
+         "group" = "meta_treat",
+         "facet" = "nutrient_treat_sp",
+         "panel" = "herb_treat_sp")
+
+combined_gam_ANCOVA_temperate<-
+  combined_gam_predict %>%
+  filter(grid == "temperate") %>%
+  ggplot() +
+  geom_line(aes(x, predicted, color = group), size = 1) +
+  geom_ribbon(aes(x = x, ymin = conf.low, ymax = conf.high, color = group, fill = group), alpha = 0.2, linewidth = 0.01) +
+  geom_point(data = combined_systems_gam_df_temp, aes(x = x, y = predicted, color = group), alpha = 0.2) +
+  facet_grid(panel~facet) +
+  theme_bw() +
+  guides(fill = "none") +
+  scale_color_manual(values = c("black", "magenta","yellow4")) +
+  scale_fill_manual(values = c("black", "magenta","yellow4")) +
+  #removeGrid() +
+  labs(x = "Time (days)", y= "Community dissimilarity (BC)", color = "Accessibility")
+
+
+
+
+
+# Extract elements for each plot
+combined_sms_2 <- smooth_estimates(combined_gam, n = 50) %>%
+  #filter(type == "Tensor product int.") %>%
+  filter(.type == "Tensor product (T2)",
+         .smooth == "t2(time_point_num,meta_treat,nutrient_treat_sp,herb_treat_sp,system)")
+
+combined_est_lim <- c(-1, 1) * max(abs(combined_sms_2[[".estimate"]]), na.rm = TRUE) # old, greater range
+#PPB_est_lim <- c(-0.25, 0.25) * max(abs(PPB_sms_2[[".estimate"]]), na.rm = TRUE)
+
+color_map <- c("black", "magenta","yellow4")  # Add more colors if needed
+names(color_map) <- levels(combined_sms_2$meta_treat)
+
+trop_comb_effect_plot<-
+  combined_sms_2 %>%
+  filter(system == "tropical") %>%
+  mutate(nutrient_treat_sp = factor(nutrient_treat_sp),
+         meta_treat = factor(meta_treat),
+         herb_treat_sp = factor(herb_treat_sp)) %>%
+  ggplot(aes(x = time_point_num, y = meta_treat, fill = .estimate)) +
+  geom_raster(aes(x = time_point_num, y = meta_treat, fill = .estimate)) +
+  geom_hline(yintercept = 1.5, color = "black", size = 0.2) +
+  geom_hline(yintercept = 2.5, color = "black", size = 0.2) +
+  #geom_tile(color = "black", alpha = 0.2) +
+  #geom_contour(aes(z = est, y = meta_treat,group = nutrient_treat_sp, fill = NULL), colour = "black") +
+  facet_grid(herb_treat_sp~ nutrient_treat_sp) +
+  #facet_grid(nutrient_treat_sp~ herb_treat_sp) +
+  scale_fill_distiller(palette = "RdBu", type = "div") +
+  expand_limits(fill = combined_est_lim) +
+  theme_bw() +
+  removeGrid() +
+  theme(axis.text.y = element_text(color = color_map)) +
+  labs(x = "Time (d)", y = "Accessibility", fill = "Smooth term effect")
+
+
+combined_SMS_ready<-combined_sms_2 %>%
+  mutate(nutrient_treat_sp = factor(nutrient_treat_sp),
+         meta_treat = factor(meta_treat),
+         herb_treat_sp = factor(herb_treat_sp),
+         system = factor(system),
+         TDBU_sys_treat = paste(nutrient_treat_sp,herb_treat_sp,system,sep = "_"))
+
+unique(combined_SMS_ready$TDBU_sys_treat)
+
+combined_SMS_ready$meta_treat = factor(combined_SMS_ready$meta_treat, levels=c("simple","complex","mix"))
+
+combined_SMS_ready<-combined_SMS_ready %>%
+  mutate(meta_treat_het = recode(meta_treat,
+                                 "simple" = "high access",
+                                 "complex" = "low access",
+                                 "mix" = "mix"))
+
+# Break into separate ggplot elements for plotting together
+p_list_sms_combined<- lapply(sort(unique(combined_SMS_ready$TDBU_sys_treat)), function(i) {
+
+  ggplot(combined_SMS_ready[combined_SMS_ready$TDBU_sys_treat==i,],aes(x = time_point_num, y = meta_treat_het, fill = .estimate)) +
+    geom_raster(aes(x = time_point_num, y = meta_treat_het, fill = .estimate)) +
+    #geom_contour(aes(z = est, y = meta_treat,group = nutrient_treat_sp, fill = NULL), colour = "black") +
+    #facet_grid(herb_treat_sp~ nutrient_treat_sp) +
+    #facet_grid(nutrient_treat_sp~ herb_treat_sp) +
+    #geom_tile(color = "black", alpha = 0.1) +
+    scale_fill_distiller(palette = "RdBu", type = "div",
+                         #breaks = c(-0.1, 0, 0.1)
+                         ) +
+    expand_limits(fill = combined_est_lim) +
+    labs(x = "Time (d)", y = "Accessibility", fill = "Smooth term effect") +
+    theme_bw() +
+    removeGrid() +
+    geom_hline(yintercept = 1.5, color = "black", size = 0.2) +
+    geom_hline(yintercept = 2.5, color = "black", size = 0.2) +
+    geom_vline(xintercept = c(0, 50, 100,150,200,250,300), color = "black", size = 0.2) +
+    #geom_vline(xintercept = c(0, 100, 200, 300), color = "black", size = 0.2) +
+    theme(axis.text.y = element_text(color = color_map),
+          # panel.background = element_rect(fill = NA),
+          #  panel.ontop = TRUE,
+          # panel.grid.minor = element_line(colour="black", size=0.2),
+          #  panel.grid.major = element_blank()
+    ) +
+    #scale_x_continuous(minor_breaks = c(0, 100, 200)) +
+    ggtitle(paste(i))
+
+
+})
+temp_HN_HH<-p_list_sms_combined[[1]]
+trop_HN_HH<-p_list_sms_combined[[2]]
+temp_HN_LH<-p_list_sms_combined[[3]]
+trop_HN_LH<-p_list_sms_combined[[4]]
+temp_LN_HH<-p_list_sms_combined[[5]]
+trop_LN_HH<-p_list_sms_combined[[6]]
+temp_LN_LH<-p_list_sms_combined[[7]]
+trop_LN_LH<-p_list_sms_combined[[8]]
+
+
+
+# ANCOVA split
+
+combined_gam_predict_deco<-as.data.frame(combined_gam_predict)
+combined_gam_predict_deco$TDBU_treat_sys <- paste(combined_gam_predict_deco$panel,combined_gam_predict_deco$facet,combined_gam_predict_deco$grid,sep = "_")
+
+combined_cleaner_W_zero_deco_point<-combined_systems_gam_df %>% mutate(x = time_point_num,
+                                                        predicted = value,
+                                                        group = meta_treat,
+                                                        facet = nutrient_treat_sp,
+                                                        panel = herb_treat_sp)
+
+combined_cleaner_W_zero_deco<-combined_cleaner_W_zero_deco_point %>%
+  mutate(TDBU_treat_sys = paste(herb_treat_sp,nutrient_treat_sp,system,sep = "_"))
+
+combined_cleaner_W_zero_deco$group = factor(combined_cleaner_W_zero_deco$group, levels=c("simple","complex","mix"))
+
+# Rename metacommunity factor levels for plotting
+combined_gam_predict_deco<-combined_gam_predict_deco %>%
+  mutate(group_het = recode(group,
+                            "simple" = "high access",
+                            "complex" = "low access",
+                            "mix" = "mix"))
+
+combined_cleaner_W_zero_deco<-combined_cleaner_W_zero_deco %>%
+  mutate(group_het = recode(meta_treat,
+                            "simple" = "high access",
+                            "complex" = "low access",
+                            "mix" = "mix"))
+
+combined_cleaner_W_zero_deco %>%
+  group_by(time_point_num,group_het) %>%
+  filter(!x == 0) %>%
+  dplyr::summarise(mean_predicted = mean(predicted,na.rm =T),
+                   x = max(x,na.rm = T),
+                   count = n())
+
+
+#PPB_cover_estimate$TDBU_treat <- paste(PPB_cover_estimate$herb_treat_sp,PPB_cover_estimate$nutrient_treat_sp,sep = "_")
+
+PPB_cover_estimate_merge<-PPB_cover_estimate %>% mutate(system = "temperate")
+MRA_cover_estimate_merge<-MRA_cover_estimate %>% mutate(system = "tropical")
+
+PPB_cover_estimate_merge$group_het <- PPB_cover_estimate_merge$complex_treatment_het
+MRA_cover_estimate_merge$group_het <- MRA_cover_estimate_merge$com_treat_het
+PPB_cover_estimate_merge$complex_treatment_het<-NULL
+MRA_cover_estimate_merge$com_treat_het<-NULL
+
+combined_cover_estimates<-rbind(MRA_cover_estimate_merge,PPB_cover_estimate_merge)
+
+combined_cover_estimates<-combined_cover_estimates %>%
+  mutate(TDBU_treat_sys = paste(herb_treat_sp,nutrient_treat_sp,system,sep = "_"))
+
+
+p_list_gam_combined<- lapply(sort(unique(combined_gam_predict_deco$TDBU_treat_sys)), function(i) {
+
+  comb_filtered_points <- combined_cleaner_W_zero_deco %>%
+    filter(TDBU_treat_sys == i)  # Corrected the filtering condition
+
+  comb_cover_estimate_filt <- combined_cover_estimates %>%
+    filter(TDBU_treat_sys == i)  # Corrected the filtering condition
+
+
+  ggplot() +
+    geom_line(data = combined_gam_predict_deco[combined_gam_predict_deco$TDBU_treat_sys==i,], aes(x, predicted, color = group_het), size = 0.75) +
+    geom_ribbon(data = combined_gam_predict_deco[combined_gam_predict_deco$TDBU_treat_sys==i,], aes(x = x, ymin = conf.low, ymax = conf.high, color = group_het, fill = group_het), alpha = 0.1, linewidth = 0.01) +
+    #geom_point(data = PPB_cleaner_W_zero_point_deco[PPB_cleaner_W_zero_point_deco$TDBU_treat==i,], aes(x = x, y = predicted, color = group), alpha = 0.2) +
+    geom_point(data = comb_filtered_points, aes(x = x, y = predicted, color = group_het), alpha = 0.2) +
+    geom_segment(data = comb_cover_estimate_filt, aes(x = x, y = 0.80, yend = 0.7, color = group_het),
+                 size = 1,
+                 arrow = arrow(length = unit(0.2, "cm")),
+                 position = position_dodge(width = 20),
+                 lineend = "butt", linejoin = "mitre",
+                 show_guide = F) +
+    #facet_grid(panel~facet) +
+    theme_bw() +
+    guides(fill = "none") +
+    scale_color_manual(values = c("black", "magenta","yellow4")) +
+    scale_fill_manual(values = c("black", "magenta","yellow4")) +
+    #removeGrid() +
+    coord_cartesian(ylim=c(0, 0.9)) +
+    labs(x = "Time (days)", y= "Community dissimilarity (BC)", color = "Accessibility") +
+    geom_text_repel(data = comb_filtered_points %>%
+                      group_by(time_point_num,group_het) %>%
+                      filter(!x == 0) %>%
+                      dplyr::summarise(mean_predicted = mean(predicted,na.rm =T),
+                                       x = max(x,na.rm = T),
+                                       count = n()),
+                    aes(label = count, x = x, y = 0.03, color = group_het),
+                    min.segment.length = Inf,
+                    box.padding = 0.2,
+                    size = 3) +
+    ggtitle(paste(i))
+
+
+  #gam_V2_ANCOVA
+
+})
+
+temp_gam_HN_HH<-p_list_gam_combined[[1]]
+trop_gam_HN_HH<-p_list_gam_combined[[2]]
+temp_gam_LN_HH<-p_list_gam_combined[[3]]
+trop_gam_LN_HH<-p_list_gam_combined[[4]]
+temp_gam_HN_LH<-p_list_gam_combined[[5]]
+trop_gam_HN_LH<-p_list_gam_combined[[6]]
+temp_gam_LN_LH<-p_list_gam_combined[[7]]
+trop_gam_LN_LH<-p_list_gam_combined[[8]]
+
+
+
+# Build combined plots
+PPB_gam_LN_HH_A_up_new<-temp_gam_LN_HH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            # legend.position = "none",
+                                            plot.margin = unit(c(0,0,0,0),"cm")) +
+  ggplot2::annotation_custom(FH_NL_image,0,120,0.7,0.95) +
+  annotate("text", label = "(a)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+
+PPB_gam_HN_HH_B_up_new<-temp_gam_HN_HH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            axis.title.y = element_blank(),
+                                            axis.text.y = element_blank(),
+                                            #   legend.position = "none",
+                                            plot.margin = unit(c(0,0,0,0.5),"cm")) +
+  ggplot2::annotation_custom(FH_NH_image,0,120,0.7,0.95) +
+  annotate("text", label = "(b)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+
+PPB_gam_HN_LH_C_up_new<-temp_gam_HN_LH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            axis.title.y = element_blank(),
+                                            axis.text.y = element_blank(),
+                                            #  legend.position = "none",
+                                            plot.margin = unit(c(0,0,0,0.5),"cm")) +
+  ggplot2::annotation_custom(FL_NH_image,0,120,0.7,0.95) +
+  annotate("text", label = "(d)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+PPB_gam_LN_LH_D_up_new<-temp_gam_LN_LH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            # legend.position = "none",
+                                            plot.margin = unit(c(0,0,0,0),"cm")) +
+  ggplot2::annotation_custom(FL_NL_image,0,120,0.7,0.95) +
+  annotate("text", label = "(c)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+
+
+
+PPB_LN_HH_A_up_new<-temp_LN_HH + theme(axis.title.y = element_blank(),axis.title.x = element_blank(), #legend.position = "none",
+                                    plot.margin = unit(c(0,0,0,0),"cm")) + ggtitle(element_blank())
+PPB_HH_HH_B_up_new<-temp_HN_HH + theme(axis.title.y = element_blank(),axis.title.x = element_blank(), axis.text.y = element_blank(), #legend.position = "none",
+                                    plot.margin = unit(c(0,0,0,0.5),"cm")) + ggtitle(element_blank())
+PPB_HN_LH_C_up_new<-temp_HN_LH + theme(axis.title.y = element_blank(), axis.text.y = element_blank(),#legend.position = "none",
+                                    plot.margin = unit(c(0,0,0,0.5),"cm")) + ggtitle(element_blank())
+PPB_LN_LH_D_up_new<-temp_LN_LH + theme(axis.title.y = element_blank(),  #legend.position = "none",
+                                    plot.margin = unit(c(0,0,0,0),"cm")) + ggtitle(element_blank())
+
+
+
+#PPB_gam_LN_HH_A_up / PPB_LN_HH_A_up +
+#  PPB_gam_HN_HH_B_up / PPB_HH_HH_B_up +
+#  PPB_gam_LN_LH_D_up / PPB_LN_LH_D_up +
+#  PPB_gam_HN_LH_C_up / PPB_HN_LH_C_up +
+#  plot_layout()
+
+PPB_panel_A_new<-PPB_gam_LN_HH_A_up_new / PPB_LN_HH_A_up_new +
+  #plot_spacer() +
+  plot_layout(heights = c(5, 1))
+
+PPB_panel_B_new<-PPB_gam_HN_HH_B_up_new / PPB_HH_HH_B_up_new +
+  #plot_spacer() +
+  plot_layout(heights = c(5, 1))
+
+PPB_panel_D_new<-PPB_gam_HN_LH_C_up_new / PPB_HN_LH_C_up_new +
+  #plot_spacer() +
+  plot_layout(heights = c(5, 1))
+
+PPB_panel_C_new<-PPB_gam_LN_LH_D_up_new / PPB_LN_LH_D_up_new +
+  #plot_spacer() +
+  plot_layout(heights = c(5, 1))
+
+#PPB_panel_A<-ggdraw() +
+#  draw_plot(PPB_panel_A) +
+#  draw_image(FH_NL_image, x = 0.2, y = 0.7, width = 0.3, height = 0.3)
+
+
+
+# Combine the panels
+PPB_combined_plot_new <- (PPB_panel_A_new | PPB_panel_B_new | PPB_panel_C_new | PPB_panel_D_new)
+
+# Set the layout
+PPB_complete_gam_plot<-PPB_combined_plot_new + plot_layout(ncol = 2,
+                                                       nrow = 2, guides = "collect") +
+  plot_annotation(title = paste("tensor product: edf =",round(combined_int_table$edf,2),
+                                #", p =",round(PPB_int_table$`p-value`,2),
+                                ", p < 0.001", # If pvalue is less than 0.001
+                                ", r² = ", round(combined_int_table$rsq, 2)),
+                  theme = theme(plot.title = element_text(hjust = 0.4, size = 10)))
+
+
+
+ggsave(filename = "./Figures/PPB_gam_fig_global.pdf",
+       plot = PPB_complete_gam_plot,
+       dpi = 300,
+       width = 11)
+
+
+ggsave(filename = "./Figures/PPB_gam_fig_global.png",
+       plot = PPB_complete_gam_plot,
+       dpi = 300,
+       width = 11)
+
+
+
+## Plot for Moorea ##
+MRA_gam_LN_HH_A_up_new<-trop_gam_LN_HH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            plot.margin = unit(c(0,0,0,0),"cm")) +
+  ggplot2::annotation_custom(FH_NL_image,0,100,0.7,0.95) +
+  annotate("text", label = "(a)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+
+MRA_gam_HN_HH_B_up_new<-trop_gam_HN_HH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            axis.title.y = element_blank(),
+                                            axis.text.y = element_blank(),
+                                            plot.margin = unit(c(0,0,0,0.5),"cm")) +
+  ggplot2::annotation_custom(FH_NH_image,0,100,0.7,0.95) +
+  annotate("text", label = "(b)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+
+MRA_gam_HN_LH_C_up_new<-trop_gam_HN_LH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            axis.title.y = element_blank(),
+                                            axis.text.y = element_blank(),
+                                            plot.margin = unit(c(0,0,0,0.5),"cm")) +
+  ggplot2::annotation_custom(FL_NH_image,0,100,0.7,0.95) +
+  annotate("text", label = "(d)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+
+MRA_gam_LN_LH_D_up_new<-trop_gam_LN_LH + theme(axis.text.x = element_blank(),
+                                            axis.title.x = element_blank(),
+                                            plot.margin = unit(c(0,0,0,0),"cm")) +
+  ggplot2::annotation_custom(FL_NL_image,0,100,0.7,0.95) +
+  annotate("text", label = "(c)", x= 0, y = 0.9, size = 5) +
+  ggtitle(element_blank())
+
+
+MRA_LN_HH_A_up_new<-trop_LN_HH + theme(axis.title.y = element_blank(),axis.title.x = element_blank(),
+                                    plot.margin = unit(c(0,0,0,0),"cm")) + ggtitle(element_blank())
+MRA_HH_HH_B_up_new<-trop_HN_HH + theme(axis.title.y = element_blank(),axis.title.x = element_blank(), axis.text.y = element_blank(),
+                                    plot.margin = unit(c(0,0,0,0.5),"cm")) + ggtitle(element_blank())
+MRA_HN_LH_C_up_new<-trop_HN_LH + theme(axis.title.y = element_blank(), axis.text.y = element_blank(),
+                                    plot.margin = unit(c(0,0,0,0.5),"cm")) + ggtitle(element_blank())
+MRA_LN_LH_D_up_new<-trop_LN_LH + theme(axis.title.y = element_blank(),
+                                    plot.margin = unit(c(0,0,0,0),"cm")) + ggtitle(element_blank())
+
+
+MRA_panel_A_new<-MRA_gam_LN_HH_A_up_new / MRA_LN_HH_A_up_new +
+  plot_layout(heights = c(5, 1))
+
+MRA_panel_B_new<-MRA_gam_HN_HH_B_up_new / MRA_HH_HH_B_up_new +
+  plot_layout(heights = c(5, 1))
+
+MRA_panel_D_new<-MRA_gam_HN_LH_C_up_new / MRA_HN_LH_C_up_new +
+  plot_layout(heights = c(5, 1))
+
+MRA_panel_C_new<-MRA_gam_LN_LH_D_up_new / MRA_LN_LH_D_up_new +
+  plot_layout(heights = c(5, 1))
+
+
+# Combine the panels
+MRA_combined_plot_new <- (MRA_panel_A_new | MRA_panel_B_new | MRA_panel_C_new | MRA_panel_D_new)
+
+# Set the layout
+MRA_complete_gam_plot<-MRA_combined_plot_new + plot_layout(ncol = 2,
+                                                   nrow = 2, guides = "collect") +
+  plot_annotation(title = paste("tensor product: edf =",round(combined_int_table$edf,2),
+                                ", p < 0.001", # If pvalue is less than 0.001
+                                ", r² = ", round(combined_int_table$rsq, 2)),
+                  theme = theme(plot.title = element_text(hjust = 0.4, size = 10)))
+
+
+# Bring in summary results for top of figure
+
+ggsave(filename = "./Figures/MRA_gam_fig_global.pdf",
+       plot = MRA_complete_gam_plot,
+       dpi = 300,
+       width = 11)
+
+
+ggsave(filename = "./Figures/MRA_gam_fig_global.png",
+       plot = MRA_complete_gam_plot,
+       dpi = 300,
+       width = 11)
+
+
+
+
 
 # END #
