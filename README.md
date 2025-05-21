@@ -2,6 +2,10 @@
 
 **Authors: Griffin Srednick & Stephen Swearer**
 
+Published on: XXX
+
+DOI: XXX
+
 *For consideration in Ecosphere*
 
 
