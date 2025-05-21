@@ -2,7 +2,7 @@
 
 **Authors: Griffin Srednick & Stephen Swearer**
 
-*For consideration in Ecology*
+*For consideration in Ecosphere*
 
 
 Code and data will be provided in a public Zenodo DOI upon acceptance.
