@@ -6,12 +6,6 @@ Published on: XXX
 
 DOI: XXX
 
-*For consideration in Ecosphere*
-
-
-Code and data will be provided in a public Zenodo DOI upon acceptance.
-
-
 **Folders**:
  
  - **Scripts**: contains scripts for:
