@@ -19,9 +19,6 @@ library(ggeffects)
 library(ggrepel)
 
 # Data import
-unique(MRA_community$zone)
-unique(PPB_community$site)
-
 MRA_community<-read.csv("./Data/Moorea_data/MRA_PC_analyze.csv")
 PPB_community<-read.csv("./Data/PPB_data/PPB_PC_analyze.csv")
 
@@ -339,9 +336,12 @@ PPB_community_meta<-PPB_community_complete %>%
 # check for duplicates?
 PP_rep_check<-PPB_community_meta %>%
   filter(site == "Mornington") %>%
-  group_by(urchin_stat,zone,nutrient_treat_sp,herb_treat_sp,time_point) %>%
+  group_by(site,urchin_stat,zone,nutrient_treat_sp,herb_treat_sp,time_point) %>%
   dplyr::summarize(count = n())
 
+MRA_rep_check<-MRA_community_meta %>%
+  group_by(site,nutrient_treat_sp,herb_treat_sp,time_point) %>%
+  dplyr::summarize(count = n())
 
 
 
