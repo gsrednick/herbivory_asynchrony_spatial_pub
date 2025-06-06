@@ -19,6 +19,9 @@ library(ggeffects)
 library(ggrepel)
 
 # Data import
+unique(MRA_community$zone)
+unique(PPB_community$site)
+
 MRA_community<-read.csv("./Data/Moorea_data/MRA_PC_analyze.csv")
 PPB_community<-read.csv("./Data/PPB_data/PPB_PC_analyze.csv")
 
@@ -97,13 +100,11 @@ MRA_merged_full$com_treat<-plyr::revalue(MRA_merged_full$com_treat, c("C" = "Com
 
 
 
-MRA_merged_full$nutrient_treat_sp = factor(MRA_merged_full$nutrient_treat_sp, levels=c("low nutrients","mid nutrients","high nutrients"))
-MRA_merged_full$herb_treat_sp = factor(MRA_merged_full$herb_treat_sp, levels=c("high herbivore","mid herbivore","low herbivore"))
+MRA_merged_full$nutrient_treat_sp = factor(MRA_merged_full$nutrient_treat_sp, levels=c("low nutrients","high nutrients"))
+MRA_merged_full$herb_treat_sp = factor(MRA_merged_full$herb_treat_sp, levels=c("high herbivore","low herbivore"))
 
 
-MRA_merged_plot<-MRA_merged_full %>%
-  filter(!nutrient_treat_sp == "mid_nutrients",
-         !herb_treat_sp == "mid herbivore")
+MRA_merged_plot<-MRA_merged_full
 
 
 ## LMER ####
@@ -816,6 +817,19 @@ addSmallLegend <- function(aPlot, pointSize = 1, textSize = 8, spaceLegend = 0.7
           legend.key.size = unit(spaceLegend, "lines"))
 }
 
+addLargeLegend <- function(aPlot, pointSize = 2, textSize = 12, spaceLegend = 0.8) {
+  aPlot +
+    guides(
+      shape = guide_legend(override.aes = list(size = pointSize, shape = 21)),
+      color = guide_legend(override.aes = list(size = pointSize, shape = 21))
+    ) +
+    theme(
+      legend.title = element_text(size = textSize),
+      legend.text  = element_text(size = textSize),
+      legend.key.size = unit(spaceLegend, "lines")
+    )
+}
+
 # For getting SE
 se_fn <- function(x) sd(x) / sqrt(length(x))
 
@@ -951,11 +965,11 @@ MRA_community_MDS<-ggplot(MRA_summarized_mds[order(MRA_summarized_mds$time_point
   facet_wrap(herb_treat_sp~ nutrient_treat_sp, ncol = 4) +
   theme(text = element_text(size = 14, color = "black"),
         axis.text.x = element_text(color="black"),
-        axis.title.x = element_blank(),
         axis.text.y = element_text(color="black"),
         panel.spacing = unit(.01,"cm"),
         strip.background = element_blank(),
-        strip.text.x = element_blank()) +
+        strip.text.x = element_blank(),
+        legend.text = element_text(size = 12)) +
   guides(fill = "none",  color=guide_legend(ncol=3)) +
   coord_cartesian(xlim= c(-0.61,0.61),
                   ylim= c(-0.61,0.61)) +
@@ -1038,7 +1052,8 @@ PPB_community_MDS<-ggplot(PPB_summarized_mds[order(PPB_summarized_mds$time_point
         axis.text.y = element_text(color="black"),
         panel.spacing = unit(.01,"cm"),
         strip.background = element_blank(),
-        strip.text.x = element_blank()) +
+        strip.text.x = element_blank(),
+        legend.text = element_text(size = 12)) +
   guides(color=guide_legend(ncol=3, order = 1), fill  = guide_legend(order = 1)) +
   coord_cartesian(xlim= c(-1.2,1),
                   ylim= c(-1.2,1)) +
@@ -1050,8 +1065,8 @@ PPB_community_MDS<-ggplot(PPB_summarized_mds[order(PPB_summarized_mds$time_point
 
 
 
-MRA_community_MDS_sm<-addSmallLegend(MRA_community_MDS)
-PPB_community_MDS_sm<-addSmallLegend(PPB_community_MDS)
+MRA_community_MDS_sm<-addLargeLegend(MRA_community_MDS)
+PPB_community_MDS_sm<-addLargeLegend(PPB_community_MDS)
 
 # Combine the MDS
 combined_mds_plot<-
@@ -1063,13 +1078,13 @@ combined_mds_plot<-
 
 ggsave(filename = "./Figures/combined_MDS_new.pdf",
        plot = combined_mds_plot,
-       dpi = 300,
+       dpi = 600,
        width = 12,
        height = 6.6)
 
 ggsave(filename = "./Figures/combined_MDS_new.png",
        plot = combined_mds_plot,
-       dpi = 300,
+       dpi = 600,
        width = 12,
        height = 6.6
        )

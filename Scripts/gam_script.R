@@ -35,12 +35,11 @@ MRA_metadata$site_zone <- paste(MRA_metadata$site, MRA_metadata$zone, sep = "_")
 # ANOCOVA style LMER
 
 MRA_cleaner<-MRA_cleaned_merged_dist %>%
-  filter(!time_point_num == 0, !nutrient_treat_sp== "mid nutrients") %>%
+  filter(!time_point_num == 0) %>%
   mutate(time_point_num = as.numeric(time_point_num))
 
 
 MRA_cleaner_W_zero<-MRA_cleaned_merged_dist %>%
-  filter(!nutrient_treat_sp== "mid nutrients") %>%
   mutate(time_point_num = as.numeric(time_point_num))
 
 
@@ -436,16 +435,12 @@ PPB_metadata$site_zone <- paste(PPB_metadata$site, PPB_metadata$zone, sep = "_")
 # ANOCOVA style LMER
 
 PPB_cleaner<-PPB_ready_toanalyze %>%
-  filter(!time_point_num == 0,
-         !nutrient_treat_sp== "mid nutrients",
-         !herb_treat_sp== "mid herbivore") %>%
+  filter(!time_point_num == 0) %>%
   mutate(time_point_num = as.numeric(time_point_num),
          meta_treat = as.factor(meta_treat))
 
 
 PPB_cleaner_W_zero<-PPB_ready_toanalyze %>%
-  filter(!nutrient_treat_sp== "mid nutrients",
-         !herb_treat_sp== "mid herbivore") %>%
   mutate(time_point_num = as.numeric(time_point_num),
          meta_treat = as.factor(meta_treat),
          nutrient_treat_sp = as.factor(nutrient_treat_sp),
@@ -803,14 +798,14 @@ PPB_complete_gam_plot<-PPB_combined_plot + plot_layout(ncol = 2,
 
 ggsave(filename = "./Figures/PPB_gam_fig.pdf",
        plot = PPB_complete_gam_plot,
-       dpi = 300,
+       dpi = 600,
        height = 7.16,
        width = 9)
 
 
 ggsave(filename = "./Figures/PPB_gam_fig.png",
        plot = PPB_complete_gam_plot,
-       dpi = 300,
+       dpi = 600,
        height = 7.16,
        width = 9)
 
@@ -1068,7 +1063,7 @@ p_list_gam_combined<- lapply(sort(unique(combined_gam_predict_deco$TDBU_treat_sy
 
   ggplot() +
     geom_line(data = combined_gam_predict_deco[combined_gam_predict_deco$TDBU_treat_sys==i,], aes(x, predicted, color = group_het), size = 0.75) +
-    geom_ribbon(data = combined_gam_predict_deco[combined_gam_predict_deco$TDBU_treat_sys==i,], aes(x = x, ymin = conf.low, ymax = conf.high, color = group_het, fill = group_het), alpha = 0.1, linewidth = 0.01) +
+    geom_ribbon(data = combined_gam_predict_deco[combined_gam_predict_deco$TDBU_treat_sys==i,], aes(x = x, ymin = conf.low, ymax = conf.high, fill = group_het), color = NA, alpha = 0.1, linewidth = 0.01) +
     #geom_point(data = PPB_cleaner_W_zero_point_deco[PPB_cleaner_W_zero_point_deco$TDBU_treat==i,], aes(x = x, y = predicted, color = group), alpha = 0.2) +
     geom_point(data = comb_filtered_points, aes(x = x, y = predicted, color = group_het), alpha = 0.2) +
     geom_segment(data = comb_cover_estimate_filt, aes(x = x, y = 0.80, yend = 0.7, color = group_het),
@@ -1210,14 +1205,16 @@ PPB_complete_gam_plot<-PPB_combined_plot_new + plot_layout(ncol = 2,
 
 ggsave(filename = "./Figures/PPB_gam_fig_global.pdf",
        plot = PPB_complete_gam_plot,
-       dpi = 300,
-       width = 11)
+       dpi = 600,
+       height = 7.16,
+       width = 9)
 
 
 ggsave(filename = "./Figures/PPB_gam_fig_global.png",
        plot = PPB_complete_gam_plot,
-       dpi = 300,
-       width = 11)
+       dpi = 600,
+       height = 7.16,
+       width = 9)
 
 
 
@@ -1297,14 +1294,16 @@ MRA_complete_gam_plot<-MRA_combined_plot_new + plot_layout(ncol = 2,
 
 ggsave(filename = "./Figures/MRA_gam_fig_global.pdf",
        plot = MRA_complete_gam_plot,
-       dpi = 300,
-       width = 11)
+       dpi = 600,
+       height = 7.16,
+       width = 9)
 
 
 ggsave(filename = "./Figures/MRA_gam_fig_global.png",
        plot = MRA_complete_gam_plot,
        dpi = 300,
-       width = 11)
+       height = 7.16,
+       width = 9)
 
 
 

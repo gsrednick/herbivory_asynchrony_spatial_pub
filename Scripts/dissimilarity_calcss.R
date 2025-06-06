@@ -69,10 +69,6 @@ write.csv(ef_sum.scrs,"./Data/Moorea_data/MRA_mds_vectors_all.csv", row.names = 
 
 
 ## BC distance ####
-MRA_community<-MRA_exp_data_corrected %>%
-  filter(!meta == "CAGE",
-         !zone == "B") # remove mid nutrient sites from this analysis
-
 MRA_com_summarized <- MRA_community[c(15:36)]
 
 MRA_env_summarized <- MRA_community[-c(15:36)]
@@ -170,19 +166,17 @@ MRA_dist_complete_clean<-MRA_dist_complete %>%
 MRA_ambient_treats<-read.csv("./Data/Moorea_data/ambient_treatments.csv")
 
 MRA_dist_complete_treats<-merge(MRA_dist_complete_clean,MRA_ambient_treats)
-
-MRA_dist_complete_treats$nutrient_treat_sp = factor(MRA_dist_complete_treats$nutrient_treat_sp, levels=c("low nutrients","mid nutrients","high nutrients"))
-MRA_dist_complete_treats$herb_treat_sp = factor(MRA_dist_complete_treats$herb_treat_sp, levels=c("low herbivore","mid herbivore","high herbivore"))
+MRA_dist_complete_treats$nutrient_treat_sp = factor(MRA_dist_complete_treats$nutrient_treat_sp, levels=c("low nutrients","high nutrients"))
+MRA_dist_complete_treats$herb_treat_sp = factor(MRA_dist_complete_treats$herb_treat_sp, levels=c("low herbivore","high herbivore"))
 
 # Make proper dates
 MRA_time_points<-read.csv("./Data/Moorea_data/MRA_time_points.csv")
 MRA_time_points$time_point_num<-MRA_time_points$Day_count
-MRA_time_points<-MRA_time_points %>% filter(!zone == "B")
 
 MRA_dist_complete_treats_time<-merge(MRA_dist_complete_treats,MRA_time_points, all= T)
 
-#dim(MRA_dist_complete_treats_time) # for checking
-#dim(MRA_dist_complete_treats) # for checking
+dim(MRA_dist_complete_treats_time) # for checking
+dim(MRA_dist_complete_treats) # for checking
 
 MRA_cleaned_merged_dist<-MRA_dist_complete_treats_time
 
@@ -275,7 +269,7 @@ PPB_ef_sum.scrs <- cbind(PPB_ef_sum.scrs, pval = PPB_ef_sum$vectors$pvals) # add
 PPB_ef_sum.scrs <- cbind(PPB_ef_sum.scrs, r2 = PPB_ef_sum$vectors$r) # add r2 to dataframe
 PPB_vectors_sum <- subset(PPB_ef_sum.scrs, pval<=0.05)
 
-PPB_ambient_treats_nochange<-read.csv("./Data/PPB_data/ambient_treatments_PPB.csv")
+PPB_ambient_treats_nochange<-read.csv("./Data/PPB_data/ambient_treatments_PPB.csv",header = T)
 PPB_mds_metadata<-merge(PPB_mds,PPB_ambient_treats_nochange)
 
 # Write this to csv for assessment - KEEP
@@ -284,7 +278,10 @@ write.csv(PPB_vectors_sum,"./Data/PPB_data/PPB_mds_vectors.csv", row.names = F)
 write.csv(PPB_ef_sum.scrs,"./Data/PPB_data/PPB_mds_vectors_all.csv", row.names = F)
 
 
-
+unique(PPB_mds_metadata$site)
+unique(PPB_mds_metadata$zone)
+unique(PPB_mds_metadata$nutrient_treat_sp)
+unique(PPB_mds_metadata$herb_treat_sp)
 
 ## BC distance ####
 #PPB_com_summarized <- PPB_community[c(18:57)]
@@ -427,8 +424,8 @@ dim(PPB_dist_merged_full)
 # Rename for consistency
 PPB_dist_merged_full$time_point_num <- PPB_dist_merged_full$Day_count
 
-PPB_dist_merged_full$nutrient_treat_sp = factor(PPB_dist_merged_full$nutrient_treat_sp, levels=c("low nutrients","mid nutrients","high nutrients"))
-PPB_dist_merged_full$herb_treat_sp = factor(PPB_dist_merged_full$herb_treat_sp, levels=c("low herbivore","mid herbivore","high herbivore"))
+PPB_dist_merged_full$nutrient_treat_sp = factor(PPB_dist_merged_full$nutrient_treat_sp, levels=c("low nutrients","high nutrients"))
+PPB_dist_merged_full$herb_treat_sp = factor(PPB_dist_merged_full$herb_treat_sp, levels=c("low herbivore","high herbivore"))
 
 
 # Write csv for PPB data

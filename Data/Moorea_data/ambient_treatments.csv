@@ -1,13 +1,9 @@
 ﻿site,zone,nutrient_treat,herb_treat,nutrient_treat_sp,herb_treat_sp,site_treatment
 1,A,low,high,low nutrients,high herbivore,LN_HH_1
-1,B,mid,mid,mid nutrients,mid herbivore,MN_MH_1
 1,C,high,low,high nutrients,low herbivore,HN_LH_1
 2,A,low,high,low nutrients,high herbivore,LN_HH_2
-2,B,mid,mid,mid nutrients,mid herbivore,MN_MH_2
 2,C,high,low,high nutrients,low herbivore,HN_LH_2
 3,A,low,low,low nutrients,low herbivore,LN_LH_3
-3,B,mid,mid,mid nutrients,mid herbivore,MN_MH_3
 3,C,high,high,high nutrients,high herbivore,HN_HH_3
 4,A,low,low,low nutrients,low herbivore,LN_LH_4
-4,B,mid,mid,mid nutrients,mid herbivore,MN_MH_4
 4,C,high,high,high nutrients,high herbivore,HN_HH_4
