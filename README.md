@@ -2,9 +2,9 @@
 
 **Authors: Griffin Srednick & Stephen Swearer**
 
-Published on: XXX
+Published in: Ecosphere
 
-DOI: XXX
+Year: 2025
 
 **Folders**:
  
