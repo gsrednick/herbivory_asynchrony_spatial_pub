@@ -1,0 +1,9 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: Srednick
+  given-names: Griffin
+orcid: https://orcid.org/0000-0002-0776-6514
+title:gsrednick/herbivory_asynchrony_spatial_pub: Code in support of Habitat attributes mediate top-down and bottom-up drivers of community development in temperate and tropical algae
+version: publish
+date-released: 2025-06-06
